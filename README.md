@@ -2,6 +2,7 @@
 
 ## Live Demo
 [Live Demo](https://arcazj.github.io/openBexi_BasicMath4Kid/index.html)
+[Live Demo](https://arcazj.github.io/openbexi_earth_orbit/index.html)
 
 An all-in-one HTML file that uses **Three.js r176** to teach 5-year-olds the four basic arithmetic operations with shiny metallic cubes.  
 No build tools, no external assets—just copy, open, and play.
