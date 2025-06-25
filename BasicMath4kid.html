@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenBexi Math Playground – 3-D Operations</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <script type="importmap">
+        {
+          "imports": {
+            "three":         "https://unpkg.com/three@0.176.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.176.0/examples/jsm/"
+          }
+        }
+    </script>
+
+    <style>
+        :root{
+            --pink:#ff7aaa;--blue:#7ac4ff;--green:#7affc0;--yellow:#ffe67a;
+            --navy:#0e1e35;--light:#ffffff;--shadow:0 4px 10px rgba(0,0,0,.25);
+            --btn-w:4.2rem;
+        }
+        *{box-sizing:border-box;font-family:'Comic Sans MS',system-ui,sans-serif;}
+        body{margin:0;background:var(--navy);color:var(--light);display:flex;flex-direction:column;height:100vh;}
+        header{padding:.6rem 1rem;font-size:1.6rem;text-align:center;}
+        #app{flex:1;display:flex;flex-direction:row;overflow:hidden;}
+
+        /* ── control panel (wider) ── */
+        #controls{
+            width:340px;min-width:280px;background:var(--pink);padding:1rem;
+            border-radius:0 .9rem .9rem 0;display:flex;flex-direction:column;gap:1rem;
+            box-shadow:var(--shadow);max-height:100vh;overflow:auto;z-index:10;
+        }
+        @media(max-width:640px){
+            #controls{flex-direction:row;flex-wrap:wrap;width:100%;border-radius:0;min-width:0;}
+        }
+
+        /* language row */
+        .lang-row{display:flex;gap:.6rem;}
+        .lang-btn{
+            flex:1;padding:.45rem;border:none;border-radius:.55rem;font-weight:bold;cursor:pointer;
+            background:var(--green);color:var(--navy);box-shadow:var(--shadow);font-size:.9rem;
+        }
+        .lang-btn.active{filter:brightness(1.2);}
+
+        /* operation buttons */
+        .op-btn{
+            width:100%;padding:1.1rem;border:none;border-radius:.75rem;font-size:1.35rem;font-weight:bold;
+            background:var(--blue);color:var(--navy);cursor:pointer;box-shadow:var(--shadow);
+            transition:filter .1s;
+        }
+        .op-btn.active{filter:brightness(1.15);}
+
+        /* equation banner: now black background */
+        #equation{
+            background:#000;padding:.4rem;border-radius:.5rem;
+            font-size:2rem;font-weight:bold;text-align:center;text-shadow:var(--shadow);
+        }
+
+        /* prompt */
+        #answerPrompt{font-size:.97rem;text-align:center;margin-top:.25rem;}
+
+        /* keypad: fixed 4×5 grid */
+        #keypad{
+            display:grid;
+            grid-template-columns:repeat(4,var(--btn-w));
+            gap:.6rem;justify-content:center;margin-top:.2rem;
+        }
+        .key-btn{
+            width:var(--btn-w);height:var(--btn-w);line-height:var(--btn-w);
+            border:none;border-radius:.65rem;font-size:1.15rem;font-weight:bold;
+            background:var(--yellow);color:var(--navy);cursor:pointer;box-shadow:var(--shadow);
+            transition:background .15s;
+        }
+        .key-btn.correct{background: #10984d;color:#fff;}
+        .key-btn.wrong  {background: #d60709;color:#fff;}
+        .key-btn:disabled{opacity:.75;cursor:not-allowed;}
+        .key-btn.spacer{visibility:hidden;pointer-events:none;}
+
+        #sceneContainer{flex:1;position:relative;}
+        canvas{display:block;}
+    </style>
+</head>
+
+<body>
+<header>🧮 OpenBexi Math Playground</header>
+
+<div id="app">
+    <div id="controls">
+
+        <!-- language buttons -->
+        <div class="lang-row">
+            <button class="lang-btn active" data-lang="en">English</button>
+            <button class="lang-btn"        data-lang="fr">Français</button>
+            <button class="lang-btn"        data-lang="es">Español</button>
+        </div>
+
+        <!-- operations -->
+        <button class="op-btn" data-op="add">Addition</button>
+        <button class="op-btn" data-op="sub">Subtraction</button>
+        <button class="op-btn" data-op="mul">Multiplication</button>
+        <button class="op-btn" data-op="div">Division</button>
+
+        <!-- black-banner equation -->
+        <div id="equation">Pick an operation!</div>
+
+        <div id="answerPrompt">Provide answer: Tap a number on the on-screen keypad (0 – 18) to submit.</div>
+        <div id="keypad"></div>
+    </div>
+
+    <div id="sceneContainer"></div>
+</div>
+
+<script type="module">
+    import * as THREE           from 'three';
+    import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment }  from 'three/addons/environments/RoomEnvironment.js';
+
+    /* i18n (unchanged) */
+    const TXT={
+        en:{add:'Addition',sub:'Subtraction',mul:'Multiplication',div:'Division',
+            pick:'Pick an operation!',prompt:'Provide answer: Tap a number on the on-screen keypad (0–18) to submit.',
+            correct:'😊',wrong:'😕'},
+        fr:{add:'Addition',sub:'Soustraction',mul:'Multiplication',div:'Division',
+            pick:'Choisissez une opération !',prompt:'Répondez : touchez un nombre (0–18) pour valider.',
+            correct:'😊',wrong:'😕'},
+        es:{add:'Suma',sub:'Resta',mul:'Multiplicación',div:'División',
+            pick:'¡Elige una operación !',prompt:'Da tu respuesta: toca un número (0–18) para enviar.',
+            correct:'😊',wrong:'😕'}
+    };
+    let LANG='en';
+
+    /* DOM refs */
+    const eqn=document.getElementById('equation');
+    const opBtns=[...document.querySelectorAll('.op-btn')];
+    const langBtns=[...document.querySelectorAll('.lang-btn')];
+    const answerPrompt=document.getElementById('answerPrompt');
+    const keypad=document.getElementById('keypad');
+
+    /* build keypad 0-18 + spacer */
+    for(let n=0;n<=18;n++){
+        const b=document.createElement('button');
+        b.className='key-btn';b.textContent=n;b.dataset.val=n;b.disabled=true;
+        b.onclick=()=>submitAnswer(n,b);
+        keypad.appendChild(b);
+    }
+    const spacer=document.createElement('button');
+    spacer.className='key-btn spacer';keypad.appendChild(spacer); // 20th blank cell
+
+    /* Three.js boilerplate (unchanged visuals) */
+    const container=document.getElementById('sceneContainer');
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0x0e1e35);
+    const camera=new THREE.PerspectiveCamera(45,1,0.1,100);camera.position.set(6,6,6);
+    const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(devicePixelRatio);
+    container.appendChild(renderer.domElement);
+    renderer.outputColorSpace=THREE.SRGBColorSpace;
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure=1.25;
+    renderer.physicallyCorrectLights=true;
+    scene.environment=new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),0.04).texture;
+    scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(0,10,7));
+    scene.add(new THREE.AmbientLight(0xffffff,0.4));
+    const rim=new THREE.PointLight(0xffffff,40,50);rim.position.set(5,5,-5);scene.add(rim);
+    const controls=new OrbitControls(camera,renderer.domElement);
+    controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;
+    window.addEventListener('resize',onResize);onResize();
+
+    /* helpers */
+    const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+    function cube(col){return new THREE.Mesh(
+        new THREE.BoxGeometry(.8,.8,.8,4,4,4),
+        new THREE.MeshPhysicalMaterial({color:col,metalness:1,roughness:.05,envMapIntensity:1.2,clearcoat:.3,clearcoatRoughness:.1})
+    );}
+    function row(g,n,x,z,c){for(let i=0;i<n;i++){const m=cube(c);m.position.set(x+i,z,0);g.add(m);}}
+
+    /* animation switch */
+    let loopFn=null;function setLoop(f){loopFn=f;}
+    let group=null,answerVal=null,ready=false;
+
+    /* UI wiring */
+    langBtns.forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
+    opBtns.forEach(b=>b.onclick=()=>pickOp(b.dataset.op));
+
+    function setLang(l){LANG=l;
+        langBtns.forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+        opBtns.forEach(b=>b.textContent=TXT[l][b.dataset.op]);
+        answerPrompt.textContent=TXT[l].prompt;
+        if(!ready)eqn.textContent=TXT[l].pick;
+    }
+    function pickOp(op){
+        opBtns.forEach(b=>b.classList.toggle('active',b.dataset.op===op));
+        resetPad();eqn.textContent=TXT[LANG][op]+'…';startDemo(op);
+    }
+    function resetPad(){keypad.querySelectorAll('.key-btn').forEach(k=>{k.disabled=true;k.classList.remove('correct','wrong');});
+        ready=false;answerVal=null;}
+    function enablePad(){keypad.querySelectorAll('.key-btn').forEach(k=>k.disabled=false);}
+    function submitAnswer(v,btn){
+        if(!ready)return;keypad.querySelectorAll('.key-btn').forEach(k=>k.disabled=true);
+        if(v===answerVal){btn.classList.add('correct');eqn.textContent=eqn.textContent.replace('?',answerVal)+' '+TXT[LANG].correct;}
+        else{btn.classList.add('wrong');eqn.textContent=eqn.textContent.replace('?',answerVal)+' '+TXT[LANG].wrong;}
+    }
+
+    /* scene cleanup */
+    function clearScene(){if(group){group.traverse(o=>o.isMesh&&(o.geometry.dispose(),o.material.dispose()));scene.remove(group);group=null;}}
+
+    /* ─── OPERATIONS (0-9 operands, result ≤ 18) ─── */
+    function demoAdd(){
+        let a,b;do{a=rand(0,9);b=rand(0,9);}while(a+b>18);
+        const sum=a+b,start=-(sum-1)/2;
+        clearScene();group=new THREE.Group();scene.add(group);
+        if(a)row(group,a,start,0,0x7ac4ff);
+        if(b)row(group,b,start+a,-2.5,0xff7aaa);
+        eqn.textContent=`${a} + ${b} = ?`;answerVal=sum;
+        let t=0;setLoop(()=>{if(t<1){t+=.02;group.children.slice(a).forEach(m=>m.position.z=-2.5+2.5*t);
+            if(t>=1){ready=true;enablePad();}}});
+    }
+    function demoSub(){
+        let a=rand(0,9),b=rand(0,a); // diff always <=9
+        const diff=a-b,start=-(a-1)/2;
+        clearScene();group=new THREE.Group();scene.add(group);
+        if(a)row(group,a,start,0,0x7affc0);
+        eqn.textContent=`${a} − ${b} = ?`;answerVal=diff;
+        const rem=group.children.slice(-b);let blink=0;
+        setLoop(()=>{blink+=.08;rem.forEach(c=>c.material.opacity=.5+.5*Math.sin(blink));
+            if(blink>Math.PI*2){rem.forEach(c=>{group.remove(c);c.geometry.dispose();c.material.dispose();});
+                ready=true;enablePad();setLoop(null);}});
+    }
+    function demoMul(){
+        let a,b;do{a=rand(0,9);b=rand(0,9);}while(a*b>18);
+        const prod=a*b;
+        clearScene();group=new THREE.Group();scene.add(group);
+        for(let i=0;i<a;i++)for(let j=0;j<b;j++){
+            const m=cube(0xffe67a);m.position.set(j-(b-1)/2,0,i-(a-1)/2);
+            m.scale.set(0,0,0);group.add(m);}
+        eqn.textContent=`${a} × ${b} = ?`;answerVal=prod;
+        let s=0;setLoop(()=>{if(s<1){s+=.03;group.children.forEach(m=>m.scale.set(s,s,s));
+            if(s>=1){ready=true;enablePad();}}});
+    }
+    function demoDiv(){
+        let parts,each,total;
+        do{
+            parts=rand(1,9);each=rand(1,9);total=parts*each;
+        }while(total>18);                     // guarantee quotient & dividend ≤18
+        clearScene();group=new THREE.Group();scene.add(group);
+        row(group,total,-(total-1)/2,0,0x7ac4ff);
+        eqn.textContent=`${total} ÷ ${parts} = ?`;answerVal=each;
+        let t=0,phase=0;setLoop(()=>{if(phase===0&&(t+=.02)>=1){phase=1;t=0;}
+        else if(phase===1){group.children.forEach((m,i)=>{const g=Math.floor(i/each);m.position.z=THREE.MathUtils.lerp(0,(g%2?1:-1)*2,t);});
+            if((t+=.02)>=1){ready=true;enablePad();setLoop(null);}}});
+    }
+
+    /* dispatcher */
+    function startDemo(op){setLoop(null);({add:demoAdd,sub:demoSub,mul:demoMul,div:demoDiv}[op])();}
+
+    /* render loop */
+    function animate(){requestAnimationFrame(animate);controls.update();loopFn&&loopFn();renderer.render(scene,camera);}
+    animate();
+
+    /* resize */
+    function onResize(){const w=container.clientWidth,h=container.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
+
+    /* init */
+    setLang('en');
+</script>
+</body>
+</html>
