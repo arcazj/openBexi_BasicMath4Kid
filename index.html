@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -63,9 +63,8 @@
         }
 
         #controls {
-            width: 24rem;
-            min-width: 280px;
-            max-width: 400px;
+            /* Use a fixed width for stability on desktop view, preventing proportional widening. */
+            width: 260px;
             background: var(--pink);
             padding: 1rem;
             border-radius: 0 .9rem .9rem 0;
@@ -86,13 +85,10 @@
             #controls {
                 flex-direction: row;
                 flex-wrap: wrap;
-                width: 100%;
                 border-radius: 0;
                 max-height: none;
                 overflow-y: visible;
                 flex-shrink: 0;
-                min-width: 0;
-                max-width: none;
             }
         }
 
@@ -192,7 +188,8 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0e1e35);
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-    camera.position.set(0, 0, 15);
+    // Set initial camera position from your settings
+    camera.position.set(5.1, -8, 18);
 
     const renderer = new THREE.WebGLRenderer({antialias: true});
     // Capping pixel ratio is a major performance boost on mobile
@@ -213,9 +210,9 @@
     scene.add(dirLight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    // Set control properties from your settings
     controls.enablePan = false;
     controls.enableDamping = true;
-    camera.position.set(5.1, -8, 18);
     controls.minDistance = 5;
     controls.maxDistance = 25;
 
@@ -228,7 +225,7 @@
         let viewX, viewY, viewWidth, viewHeight;
 
         // Check if we are in the mobile layout (controls on top)
-        if (window.innerWidth <= 640) {
+        if (window.innerWidth <= 240) {
             viewX = appBounds.left;
             viewY = controlsBounds.bottom;
             viewWidth = appBounds.width;
@@ -240,13 +237,19 @@
             viewHeight = appBounds.height;
         }
 
+        // Safeguard against negative values which cause WebGL errors.
+        viewWidth = Math.max(0, viewWidth);
+        viewHeight = Math.max(0, viewHeight);
+
         // Tell the renderer to only render in this calculated rectangle
         renderer.setScissor(viewX, window.innerHeight - viewY - viewHeight, viewWidth, viewHeight);
         renderer.setViewport(viewX, window.innerHeight - viewY - viewHeight, viewWidth, viewHeight);
 
-        // Update camera aspect ratio to match the new viewport
-        camera.aspect = viewWidth / viewHeight;
-        camera.updateProjectionMatrix();
+        // Update camera aspect ratio only if the viewport is valid to avoid division by zero.
+        if (viewHeight > 0) {
+            camera.aspect = viewWidth / viewHeight;
+            camera.updateProjectionMatrix();
+        }
     }
 
     // Use ResizeObserver for reliable updates
