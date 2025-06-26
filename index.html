@@ -158,7 +158,9 @@
     renderer.toneMappingExposure=1.25;
     renderer.physicallyCorrectLights=true;
     scene.environment=new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),0.04).texture;
-    scene.add(new THREE.DirectionalLight(0xffffff,1).position.set(0,10,7));
+    const key = new THREE.DirectionalLight(0xffffff, 1);
+    key.position.set(0, 10, 7);
+    scene.add(key);
     scene.add(new THREE.AmbientLight(0xffffff,0.4));
     const rim=new THREE.PointLight(0xffffff,40,50);rim.position.set(5,5,-5);scene.add(rim);
     const controls=new OrbitControls(camera,renderer.domElement);
