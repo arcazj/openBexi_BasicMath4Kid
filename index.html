@@ -162,13 +162,13 @@
     scene.add(new THREE.AmbientLight(0xffffff,0.4));
     const rim=new THREE.PointLight(0xffffff,40,50);rim.position.set(5,5,-5);scene.add(rim);
     const controls=new OrbitControls(camera,renderer.domElement);
-    controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;
+    controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=14;
     window.addEventListener('resize',onResize);onResize();
 
     /* helpers */
     const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
     function cube(col){return new THREE.Mesh(
-        new THREE.BoxGeometry(.8,.8,.8,4,4,4),
+        new THREE.BoxGeometry(.4,.8,.4,4,4,4),
         new THREE.MeshPhysicalMaterial({color:col,metalness:1,roughness:.05,envMapIntensity:1.2,clearcoat:.3,clearcoatRoughness:.1})
     );}
     function row(g,n,x,z,c){for(let i=0;i<n;i++){const m=cube(c);m.position.set(x+i,z,0);g.add(m);}}
@@ -208,8 +208,8 @@
         let a,b;do{a=rand(0,9);b=rand(0,9);}while(a+b>18);
         const sum=a+b,start=-(sum-1)/2;
         clearScene();group=new THREE.Group();scene.add(group);
-        if(a)row(group,a,start,0,0x7ac4ff);
-        if(b)row(group,b,start+a,-2.5,0xff7aaa);
+        if(a)row(group,a,start,1,0x7ac4ff);
+        if(b)row(group,b,start,-1,0xff7aaa);
         eqn.textContent=`${a} + ${b} = ?`;answerVal=sum;
         let t=0;setLoop(()=>{if(t<1){t+=.02;group.children.slice(a).forEach(m=>m.position.z=-2.5+2.5*t);
             if(t>=1){ready=true;enablePad();}}});
@@ -242,7 +242,7 @@
             parts=rand(1,9);each=rand(1,9);total=parts*each;
         }while(total>18);                     // guarantee quotient & dividend ≤18
         clearScene();group=new THREE.Group();scene.add(group);
-        row(group,total,-(total-1)/2,0,0x7ac4ff);
+        row(group,total,-(total-1)/2,1,0x7ac4ff);
         eqn.textContent=`${total} ÷ ${parts} = ?`;answerVal=each;
         let t=0,phase=0;setLoop(()=>{if(phase===0&&(t+=.02)>=1){phase=1;t=0;}
         else if(phase===1){group.children.forEach((m,i)=>{const g=Math.floor(i/each);m.position.z=THREE.MathUtils.lerp(0,(g%2?1:-1)*2,t);});
