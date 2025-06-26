@@ -295,8 +295,9 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = false;
     controls.enableDamping = true;
+    camera.position.set(5.1, -8, 18);
     controls.minDistance = 5;
-    controls.maxDistance = 20;
+    controls.maxDistance = 25;
 
     /* ─── RESPONSIVE POSITIONING LOGIC ─── */
     const centerOffset = new THREE.Vector2();
@@ -313,7 +314,7 @@
         }
         const viewHeight = canvasBounds.height;
         const fov = THREE.MathUtils.degToRad(camera.fov);
-        const worldHeight = 2 * Math.tan(fov) * camera.position.z;
+        const worldHeight = 2 * Math.tan(fov/2) * camera.position.z;
         const pixelToWorldScale = worldHeight / viewHeight;
         if (group) {
             group.position.x = centerOffset.x * pixelToWorldScale;
