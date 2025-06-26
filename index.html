@@ -26,6 +26,11 @@
             --btn-w: 4.2rem;
         }
 
+        html {
+            /* Make the root font size responsive to viewport size. All 'rem' units will now scale. */
+            font-size: calc(1vmin + 0.5rem); /* vmin is the smaller of vw or vh, ensuring balanced scaling */
+        }
+
         * {
             box-sizing: border-box;
             font-family: 'Comic Sans MS', system-ui, sans-serif;
@@ -57,8 +62,10 @@
         }
 
         #controls {
-            width: 340px;
-            min-width: 280px;
+            /* Make width responsive using rem, with min/max caps in px to prevent extremes */
+            width: 24rem;
+            min-width: 280px; /* A hard min-width is good for usability on small screens */
+            max-width: 400px; /* A hard max-width is good for large screens */
             background: var(--pink);
             padding: 1rem;
             border-radius: 0 .9rem .9rem 0;
@@ -84,6 +91,9 @@
                 max-height: none; /* Allow controls to take needed height */
                 overflow-y: visible;
                 flex-shrink: 0; /* Prevent controls from shrinking */
+                /* Remove min/max width on mobile as it takes full width */
+                min-width: 0;
+                max-width: none;
             }
         }
 
@@ -293,15 +303,17 @@
     function updateCentering() {
         const canvasBounds = container.getBoundingClientRect();
         if (window.innerWidth > 640) {
-            centerOffset.x = controlsPane.offsetWidth / 2;
+            // Reduced the multiplier from 0.5 to 0.3 to move the group left, closer to the menu
+            centerOffset.x = controlsPane.offsetWidth * 0.05;
             centerOffset.y = 0;
         } else {
+            // Reduced the multiplier from 1.1 to 0.8 to move the group up, closer to the menu
             centerOffset.x = 0;
-            centerOffset.y = -controlsPane.offsetHeight / 2 * 1.1;
+            centerOffset.y = -controlsPane.offsetHeight / 2 * 0.8;
         }
         const viewHeight = canvasBounds.height;
         const fov = THREE.MathUtils.degToRad(camera.fov);
-        const worldHeight = 2 * Math.tan(fov / 2) * camera.position.z;
+        const worldHeight = 2 * Math.tan(fov) * camera.position.z;
         const pixelToWorldScale = worldHeight / viewHeight;
         if (group) {
             group.position.x = centerOffset.x * pixelToWorldScale;
@@ -315,8 +327,8 @@
         const h = container.clientHeight;
         renderer.setSize(w, h);
         camera.aspect = w / h;
-        camera.updateProjectionMatrix();
         updateCentering();
+        camera.updateProjectionMatrix();
     }
     new ResizeObserver(onResize).observe(container);
     new ResizeObserver(onResize).observe(controlsPane);
